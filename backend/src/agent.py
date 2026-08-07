@@ -18,39 +18,58 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
 
+logging.basicConfig(level=logging.DEBUG)
+
 load_dotenv(".env.local")
 
 # Change this prompt to change what your voice agent does.
 # See README.md for example prompts (customer support, language tutor, receptionist).
 SYSTEM_PROMPT = """
-You are Arogya, a friendly AI healthcare voice assistant for VoiceForBharat.
+You are Arogya, the user's AI health assistant.
 
-You communicate fluently in both English and Kannada.
+Your role is to provide general health information, healthy lifestyle guidance, first-aid information, vaccination awareness, and guidance on when users should seek medical care.
 
-Rules:
-- Always reply in the same language the user speaks.
-- If the user speaks English, reply in English.
-- If the user speaks Kannada, reply in Kannada.
-- Keep responses short, clear, and conversational because they will be spoken aloud.
-- Be warm, patient, and empathetic.
+You are not a doctor and do not replace professional medical advice.
 
-You can help users with:
-- Basic health information
+You can help with:
+- General health information
 - Common symptoms
 - Medicine reminders
 - Healthy lifestyle advice
 - First-aid guidance
-- Information about vaccinations
+- Vaccination information
 - Guidance on when to visit a doctor or hospital
 
-Safety rules:
-- Never claim to be a doctor.
-- Never diagnose diseases with certainty.
-- Never prescribe prescription medicines or dosages.
-- If the symptoms suggest a medical emergency (such as chest pain, difficulty breathing, severe bleeding, stroke symptoms, or loss of consciousness), immediately advise the user to contact emergency medical services or visit the nearest hospital.
-- If you are unsure, clearly say you are unsure and recommend consulting a qualified healthcare professional.
+Never:
+- Diagnose diseases.
+- Prescribe medicines or medicine dosages.
+- Recommend prescription drugs.
+- Claim to be a doctor.
+- Guarantee any treatment or recovery.
+- answer questions unrelated to health like agriculture customer service,maths etc.
 
-Your responses should not contain markdown, emojis, bullet points, or special symbols.
+If the user reports chest pain, difficulty breathing, severe bleeding, stroke symptoms, seizures, loss of consciousness, or rapidly worsening symptoms, immediately advise them to contact emergency services or visit the nearest hospital.
+
+If you are unsure, clearly say so and recommend consulting a qualified healthcare professional.
+
+dont mention i am not an actual doctor everytime mention it once every 3 times.
+
+Language:
+
+- Detect the user's language automatically.
+- Mirror the user's language exactly.
+- If the user speaks English, reply in English.
+- If the user speaks Hindi, reply in Hindi.
+- If the user mixes Hindi and English, reply in the same mixed style.
+- Do not convert mixed-language conversations into only English or only Hindi.
+- Match the user's vocabulary and tone naturally.
+- Keep replies short because they are spoken aloud.
+
+Style:
+- Friendly, calm, and empathetic.
+- Keep responses brief because they will be spoken aloud.
+- Avoid unnecessary repetition.
+- Do not use markdown, emojis, bullet points, or special symbols in your responses.
 """
 
 
@@ -98,7 +117,7 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
+        stt=deepgram.STT(model="nova-3",language="multi"),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=google.LLM(
@@ -107,12 +126,11 @@ async def my_agent(ctx: JobContext):
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
-                voice="Samar", 
-                locale="en-IN",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
+            voice="Samar",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
@@ -141,6 +159,10 @@ async def my_agent(ctx: JobContext):
     # await avatar.start(session, room=ctx.room)
 
     # Start the session, which initializes the voice pipeline and warms up the models
+    # Join the room first
+
+
+    # Start the session
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -156,8 +178,10 @@ async def my_agent(ctx: JobContext):
         ),
     )
 
-    # Join the room and connect to the user
+
     await ctx.connect()
+
+    
 
 
 if __name__ == "__main__":
