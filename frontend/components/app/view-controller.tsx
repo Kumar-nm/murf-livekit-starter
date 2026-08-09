@@ -103,6 +103,28 @@ export function ViewController({
     micError,
   ]);
 
+
+  const getUserId = () => {
+    let userId = localStorage.getItem('arogya_user_id');
+
+    if (!userId) {
+      userId = crypto.randomUUID();
+
+      localStorage.setItem(
+        'arogya_user_id',
+        userId
+      );
+    }
+
+    // Send the same persistent ID to /api/token
+    document.cookie =
+      `arogya_user_id=${encodeURIComponent(userId)}; path=/; max-age=31536000; SameSite=Lax`;
+
+    console.log('Arogya user ID:', userId);
+
+    return userId;
+  };
+
   /*
    * Start a new voice session.
    */
@@ -145,7 +167,15 @@ export function ViewController({
       /*
        * Start the LiveKit session.
        */
+      stream.getTracks().forEach((track) => {
+        track.stop();
+      });
+
+      // Create/retrieve persistent caller ID
+      getUserId();
+
       await start();
+      
     } catch (error) {
       console.error(
         'Unable to start voice session:',

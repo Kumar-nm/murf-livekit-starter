@@ -7,46 +7,53 @@ import { useSessionContext } from '@livekit/components-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/shadcn/utils';
 
-/**
- * Props for the AgentDisconnectButton component.
- */
 export interface AgentDisconnectButtonProps
   extends ComponentProps<'button'>,
     VariantProps<typeof buttonVariants> {
   /**
-   * Custom icon to display. Defaults to PhoneOffIcon.
+   * Custom icon to display.
+   * Defaults to PhoneOffIcon.
    */
   icon?: React.ReactNode;
+
   /**
    * The size of the button.
    * @default 'default'
    */
   size?: 'default' | 'sm' | 'lg' | 'icon';
+
   /**
    * The variant of the button.
    * @default 'destructive'
    */
-  variant?: 'default' | 'outline' | 'destructive' | 'ghost' | 'link';
+  variant?:
+    | 'default'
+    | 'outline'
+    | 'destructive'
+    | 'ghost'
+    | 'link';
+
   /**
    * The children to render.
    */
   children?: React.ReactNode;
+
   /**
    * The callback for when the button is clicked.
    */
-  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick?: (
+    event: React.MouseEvent
+  ) => void;
 }
 
 /**
  * A button to disconnect from the current agent session.
- * Calls the session's end() method when clicked.
  *
- * @extends ComponentProps<'button'>
+ * If an onClick callback is provided, that callback
+ * controls what happens.
  *
- * @example
- * ```tsx
- * <AgentDisconnectButton onClick={() => console.log('Disconnecting...')} />
- * ```
+ * Otherwise, the button disconnects the session
+ * directly.
  */
 export function AgentDisconnectButton({
   icon,
@@ -56,18 +63,47 @@ export function AgentDisconnectButton({
   onClick,
   ...props
 }: AgentDisconnectButtonProps) {
-  const { end } = useSessionContext();
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    onClick?.(event);
+
+  const { end } =
+    useSessionContext();
+
+  const handleClick = (
+    event: React.MouseEvent
+  ) => {
+
+    // If the parent supplied an onClick,
+    // let the parent control the action.
+    if (onClick) {
+      onClick(event);
+      return;
+    }
+
+    // Otherwise, preserve the original
+    // default behavior of disconnecting.
     if (typeof end === 'function') {
       end();
     }
   };
 
   return (
-    <Button size={size} variant={variant} onClick={handleClick} {...props}>
+    <Button
+      size={size}
+      variant={variant}
+      onClick={handleClick}
+      {...props}
+    >
       {icon ?? <PhoneOffIcon />}
-      {children ?? <span className={cn(size?.includes('icon') && 'sr-only')}>END CALL</span>}
+
+      {children ?? (
+        <span
+          className={cn(
+            size?.includes('icon') &&
+              'sr-only'
+          )}
+        >
+          END CALL
+        </span>
+      )}
     </Button>
   );
 }
