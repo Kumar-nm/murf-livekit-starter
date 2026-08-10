@@ -5,6 +5,104 @@ Build a production voice AI agent in 5 minutes. Powered by the fastest TTS on th
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-6366F1)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 ---
+---
+
+## 10 Days of Voice Agents – Arogya Health Access 🩺
+
+Building Arogya Health Access as part of the **10 Days of Voice Agents** challenge by Murf AI.
+
+### Day 1 – The Foundation 🎙️
+
+Built the foundation of Arogya Health Access as a voice-first healthcare assistant.
+
+- Set up the LiveKit voice agent
+- Connected speech-to-text, LLM and text-to-speech
+- Configured Murf Falcon for voice responses
+- Created the initial healthcare-focused system prompt
+- Established real-time voice conversations
+
+**Built with:** LiveKit Agents, Deepgram, Gemini and Murf Falcon
+
+---
+
+### Day 2 – Voice & Multilingual Experience 🌐
+
+Focused on making Arogya more accessible through multilingual voice interaction.
+
+- Added multilingual voice interaction
+- Configured speech recognition for multiple languages
+- Added language-aware responses
+- Improved the voice conversation experience
+- Connected the voice agent with the frontend
+
+**Built with:** LiveKit, Deepgram, Gemini and Murf Falcon
+
+---
+
+### Day 3 – Personalised Healthcare UI 🎨
+
+Focused on the frontend and user experience of Arogya.
+
+- Built a custom healthcare-focused homepage
+- Added a 5-language interface
+- Created a voice-first conversation interface
+- Added real-time conversation transcripts
+- Added connecting and active conversation states
+- Designed the interface around a healthcare use case
+
+The UI was structured to allow individual visual elements and interactions to be extended in future iterations.
+
+**Built with:** Next.js, React, TypeScript, Tailwind CSS and LiveKit Components
+
+---
+
+### Day 4 – Agent Memory 🧠
+
+Taught Arogya to remember useful information from previous conversations.
+
+- Added user identification
+- Added persistent user memory
+- Added conversation history
+- Added temporary in-session memory
+- Added returning-user personalisation
+- Added post-call memory consent
+- Added Save / Discard memory flow
+
+Arogya only persists the current conversation when the user explicitly gives consent.
+
+**Built with:** Python, SQLite, LiveKit Agents, Next.js, React and TypeScript
+
+---
+
+### Day 5 – The Tools 🔧
+
+Taught Arogya to use an external tool and retrieve real-world healthcare data.
+
+Built a healthcare facility lookup using an **MCP server** and live OpenStreetMap data.
+
+- Added browser device-location detection
+- Resolved device coordinates to the user's district
+- Chained location information into the healthcare lookup
+- Built an MCP healthcare server
+- Added the `find_nearby_health_facilities` tool
+- Connected the MCP tool directly to the voice agent
+- Retrieved live healthcare facility data from OpenStreetMap
+- Added distance calculation
+- Added facility addresses when available
+- Added public / government facility tagging when available
+- Added Google Maps links
+- Added the data fetch timestamp
+- Pushed healthcare results to the frontend while the agent speaks
+- Added graceful failure handling when the external data source is unavailable
+- Added a fallback Overpass endpoint for improved reliability
+
+The healthcare data is **live**, not a hand-built local dataset.
+
+The agent can automatically use the tool when the user asks for a nearby hospital, clinic, PHC or other healthcare facility.
+
+**Built with:** Python, MCP, LiveKit Agents, OpenStreetMap, Overpass API, Nominatim, Next.js, React, TypeScript, Tailwind CSS, Gemini, Deepgram and Murf Falcon
+
+---
 
 ## Why Murf Falcon
 

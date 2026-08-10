@@ -1,4 +1,5 @@
 'use client';
+import { HealthFacilityPanel } from '@/components/app/health-facility-panel';
 
 import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
@@ -401,53 +402,57 @@ export function ViewController({
            ================================================= */}
 
         {isConnected && (
-          <MotionSessionView
-            key="session"
-            {...VIEW_MOTION_PROPS}
-            language={language}
-            supportsChatInput={
-              appConfig.supportsChatInput
-            }
-            supportsVideoInput={
-              appConfig.supportsVideoInput
-            }
-            supportsScreenShare={
-              appConfig.supportsScreenShare
-            }
-            isPreConnectBufferEnabled={
-              appConfig.isPreConnectBufferEnabled
-            }
-            audioVisualizerType={
-              appConfig.audioVisualizerType
-            }
-            audioVisualizerColor={
-              resolvedTheme === 'dark'
-                ? appConfig.audioVisualizerColorDark
-                : appConfig.audioVisualizerColor
-            }
-            audioVisualizerColorShift={
-              appConfig.audioVisualizerColorShift
-            }
-            audioVisualizerBarCount={
-              appConfig.audioVisualizerBarCount
-            }
-            audioVisualizerGridRowCount={
-              appConfig.audioVisualizerGridRowCount
-            }
-            audioVisualizerGridColumnCount={
-              appConfig.audioVisualizerGridColumnCount
-            }
-            audioVisualizerRadialBarCount={
-              appConfig.audioVisualizerRadialBarCount
-            }
-            audioVisualizerRadialRadius={
-              appConfig.audioVisualizerRadialRadius
-            }
-            audioVisualizerWaveLineWidth={
-              appConfig.audioVisualizerWaveLineWidth
-            }
-            className="absolute inset-0"
-          />
+          <>
+            <HealthFacilityPanel />
+
+            <MotionSessionView
+              key="session"
+              {...VIEW_MOTION_PROPS}
+              language={language}
+              supportsChatInput={
+                appConfig.supportsChatInput
+              }
+              supportsVideoInput={
+                appConfig.supportsVideoInput
+              }
+              supportsScreenShare={
+                appConfig.supportsScreenShare
+              }
+              isPreConnectBufferEnabled={
+                appConfig.isPreConnectBufferEnabled
+              }
+              audioVisualizerType={
+                appConfig.audioVisualizerType
+              }
+              audioVisualizerColor={
+                resolvedTheme === 'dark'
+                  ? appConfig.audioVisualizerColorDark
+                  : appConfig.audioVisualizerColor
+              }
+              audioVisualizerColorShift={
+                appConfig.audioVisualizerColorShift
+              }
+              audioVisualizerBarCount={
+                appConfig.audioVisualizerBarCount
+              }
+              audioVisualizerGridRowCount={
+                appConfig.audioVisualizerGridRowCount
+              }
+              audioVisualizerGridColumnCount={
+                appConfig.audioVisualizerGridColumnCount
+              }
+              audioVisualizerRadialBarCount={
+                appConfig.audioVisualizerRadialBarCount
+              }
+              audioVisualizerRadialRadius={
+                appConfig.audioVisualizerRadialRadius
+              }
+              audioVisualizerWaveLineWidth={
+                appConfig.audioVisualizerWaveLineWidth
+              }
+              className="absolute inset-0"
+            />
+          </>
         )}
 
       </AnimatePresence>
