@@ -104,6 +104,26 @@ The agent can automatically use the tool when the user asks for a nearby hospita
 
 ---
 
+### Day 6 – Outbound Calls 📞
+
+Taught Arogya to proactively call the user instead of only responding to incoming conversations.
+
+* Added outbound calling using LiveKit Telephony
+* Integrated Linphone through SIP
+* Added scheduled healthcare reminder calls
+* Added dynamic reminder purposes instead of a fixed vaccination reminder
+* Added two-way conversation after the call connects
+* Added support for continuing the conversation during reminder calls
+* Added user-controlled call termination
+* Added opt-out handling for users who do not want further calls
+* Kept multilingual speech and native-script support for outbound calls
+
+Arogya can now proactively call the user, deliver the requested healthcare reminder, and continue the conversation naturally over the phone.
+
+**Built with:** Python, LiveKit Agents, LiveKit Telephony, SIP, Linphone, Murf Falcon, Deepgram, Google Gemini and Silero
+
+---
+
 ## Why Murf Falcon
 
 - **55ms model latency** - fastest production TTS
