@@ -9,9 +9,11 @@ import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
+import subprocess
+
 
 from dotenv import load_dotenv
-from livekit import rtc
+from livekit import api,rtc
 
 from livekit.agents import (
     Agent,
@@ -347,9 +349,10 @@ same mixed style.
 Do not convert mixed-language conversations into
 only English or only Hindi.
 
-Always use the native script for non-English languages.
+Always write every language in its own native script.
 
-Hindi must use Devanagari.
+    Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+    Same rule for all non-English languages.
 
 Keep replies short because they are spoken aloud.
 
@@ -402,6 +405,8 @@ district with the MCP healthcare tool.
 
 If device location is unavailable, ask the user
 for a place or district.
+
+
 
 HEALTHCARE FACILITY TOOL:
 
@@ -464,6 +469,40 @@ session should be persisted.
 Never ask the caller for consent through an
 AI-generated question at the end of the call.
 The application handles the consent screen separately.
+
+    OUTBOUND REMINDERS:
+
+If the user explicitly asks for a reminder call, use the
+schedule_vaccination_reminder tool.
+
+The reminder parameter must contain exactly what the user
+wants to be reminded about.
+
+Examples:
+
+User: "Remind me to take my medicine."
+reminder = "take my medicine"
+
+User: "Call me and remind me to check my blood pressure."
+reminder = "check my blood pressure"
+
+User: "Remind me about my doctor's appointment."
+reminder = "my doctor's appointment"
+
+User: "Call me to ask how I'm feeling."
+reminder = "ask how I'm feeling"
+
+IMPORTANT:
+
+- If the user does NOT mention a time, use 60 seconds.
+- "after 1 minute" = 60 seconds.
+- "after 2 minutes" = 120 seconds.
+- "after 5 minutes" = 300 seconds.
+- Never interpret an unspecified reminder as one day later.
+- Never change the user's reminder into a vaccination reminder.
+
+After scheduling the call, tell the user when the call
+will happen.
 """
 
 
@@ -918,6 +957,122 @@ class Assistant(Agent):
             "The information is temporarily remembered "
             "for this conversation. It has not been saved "
             "to the database."
+        )
+    # ========================================================
+    # OUTBOUND VACCINATION REMINDER
+    # ========================================================
+
+    @function_tool
+    async def schedule_vaccination_reminder(
+        self,
+        context: RunContext,
+        reminder: str,
+        delay_seconds: int = 60,
+    ) -> str:
+        """Schedule an outbound reminder call.
+
+        The reminder should contain what the user wants
+        to be reminded about.
+
+        If the user does not specify a time, use 60 seconds.
+        If the user explicitly specifies a delay, use it.
+        """
+
+        call_to = os.getenv("OUTBOUND_CALL_TO")
+
+        if not call_to:
+            logger.error(
+                "OUTBOUND_CALL_TO is not configured"
+            )
+            return (
+                "I could not schedule the reminder "
+                "because the call destination is not configured."
+            )
+
+        reminder = reminder.strip()
+
+        if not reminder:
+            return (
+                "Please tell me what you want "
+                "the reminder call to be about."
+            )
+
+        # Default to 60 seconds when no time is specified.
+        if delay_seconds is None:
+            delay_seconds = 60
+
+        # Prevent unreasonable delays.
+        delay_seconds = max(
+            1,
+            min(delay_seconds, 3600)
+        )
+
+        logger.info(
+            "Scheduling reminder: '%s' in %s seconds",
+            reminder,
+            delay_seconds,
+        )
+
+        try:
+            scheduler_path = os.path.join(
+                os.path.dirname(__file__),
+                "telephony",
+                "outbound",
+                "schedule_call.py",
+            )
+
+            await asyncio.create_subprocess_exec(
+                sys.executable,
+                scheduler_path,
+                "--delay",
+                str(delay_seconds),
+                "--to",
+                call_to,
+                "--reminder",
+                reminder,
+                creationflags=(
+                    subprocess.CREATE_NEW_PROCESS_GROUP
+                    if os.name == "nt"
+                    else 0
+                ),
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to start reminder scheduler"
+            )
+
+            return (
+                "I couldn't schedule the reminder."
+            )
+
+        if delay_seconds == 60:
+            return (
+                f"Your reminder call about {reminder} "
+                "is scheduled for about one minute from now."
+            )
+
+        minutes = delay_seconds // 60
+        seconds = delay_seconds % 60
+
+        if minutes and seconds:
+            return (
+                f"Your reminder call about {reminder} "
+                f"is scheduled for about {minutes} minutes "
+                f"and {seconds} seconds from now."
+            )
+
+        if minutes:
+            return (
+                f"Your reminder call about {reminder} "
+                f"is scheduled for about {minutes} minutes "
+                "from now."
+            )
+
+        return (
+            f"Your reminder call about {reminder} "
+            f"is scheduled for about {seconds} seconds "
+            "from now."
         )
 
 
