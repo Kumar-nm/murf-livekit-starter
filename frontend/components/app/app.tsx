@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
 
@@ -17,10 +18,8 @@ import { useDebugMode } from '@/hooks/useDebug';
 
 import { getPersistentTokenSource } from '@/lib/utils';
 
-
 const IN_DEVELOPMENT =
   process.env.NODE_ENV !== 'production';
-
 
 function AppSetup() {
   useDebugMode({
@@ -32,11 +31,9 @@ function AppSetup() {
   return null;
 }
 
-
 interface AppProps {
   appConfig: AppConfig;
 }
-
 
 export function App({
   appConfig,
@@ -56,7 +53,6 @@ export function App({
     [appConfig]
   );
 
-
   const session = useSession(
     tokenSource,
     appConfig.agentName
@@ -67,7 +63,6 @@ export function App({
       : undefined
   );
 
-
   return (
     <AgentSessionProvider
       session={session}
@@ -76,9 +71,19 @@ export function App({
       <AppSetup />
 
       <main className="relative h-svh w-full overflow-hidden">
+
+        {/* Human Support Dashboard Link */}
+        <Link
+          href="/dashboard"
+          className="absolute bottom-7 right-5 z-50 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/60"
+        >
+          Human Support Dashboard
+        </Link>
+
         <ViewController
           appConfig={appConfig}
         />
+
       </main>
 
       <StartAudioButton

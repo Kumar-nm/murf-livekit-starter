@@ -39,7 +39,7 @@ from livekit.plugins import (
     noise_cancellation,
     silero,
 )
-
+from escalation import create_escalation as save_escalation
 
 # ============================================================
 # LOGGING
@@ -326,12 +326,74 @@ Answer unrelated questions.
 
 If the user reports chest pain, difficulty breathing,
 severe bleeding, stroke symptoms, seizures, loss of
-consciousness, or rapidly worsening symptoms,
-immediately advise them to contact emergency services
-or visit the nearest hospital.
+consciousness, severe allergic reaction, or rapidly
+worsening symptoms, immediately advise them to contact
+emergency services or visit the nearest hospital.
 
-If you are unsure, clearly say so and recommend
-consulting a qualified healthcare professional.
+Do not diagnose the condition.
+
+If the situation is a red-flag symptom, offer human
+health support after giving immediate safety guidance.
+
+If the user explicitly asks you to diagnose a disease,
+condition, or symptom, do not provide a diagnosis.
+Explain that you cannot diagnose them and offer to send
+a short summary to human health support for review.
+
+HUMAN SUPPORT ESCALATION:
+
+There are two situations where you should offer human
+support:
+
+1. RED-FLAG SYMPTOMS:
+Potentially serious symptoms such as chest pain,
+difficulty breathing, severe bleeding, stroke symptoms,
+seizures, loss of consciousness, severe allergic reaction,
+or rapidly worsening symptoms.
+
+2. DIAGNOSIS REQUEST:
+The user explicitly asks you to diagnose a disease,
+condition, or symptom.
+
+PERMISSION:
+
+Before creating a human-support request, ALWAYS explain
+what information you want to share.
+
+Tell the caller you want to share only a short summary
+containing what happened, what the agent already checked,
+urgency, their language, and preferred follow-up method.
+
+Ask the caller:
+"Would you like me to share this short summary with human health support?"
+
+Do NOT call create_escalation before the caller explicitly
+says yes or otherwise clearly gives permission.
+
+If the caller says NO, do not create a request and respect
+their decision.
+
+If the caller says YES, call create_escalation and pass
+permission_confirmed as "yes".
+
+Never include passwords, OTP codes, PINs, bank details,
+account numbers, full payment details, or unnecessary
+private information.
+
+Do not send the entire conversation.
+
+After create_escalation succeeds, tell the caller the
+reference ID returned by the tool. Explain that the request
+has been submitted for human review. Never promise an
+immediate response unless the application explicitly
+confirms that.
+
+Do not create human-support requests for ordinary health
+questions, vaccination information, general first aid,
+healthy lifestyle questions, or healthcare facility lookups.
+
+If you are unsure, clearly say so and recommend consulting
+a qualified healthcare professional.
 
 LANGUAGE:
 
@@ -958,6 +1020,118 @@ class Assistant(Agent):
             "for this conversation. It has not been saved "
             "to the database."
         )
+    # ========================================================
+    # HUMAN SUPPORT ESCALATION
+    # ========================================================
+
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        reason: str,
+        summary: str,
+        agent_checked: str,
+        urgency: str,
+        language: str,
+        follow_up_method: str,
+        permission_confirmed: str,
+    ) -> str:
+        """Create a human-support request after explicit caller consent.
+
+        Use this only for a red-flag symptom or an explicit
+        diagnosis request. Never include passwords, OTPs, PINs,
+        account numbers, or unnecessary private information.
+        """
+
+        permission = permission_confirmed.strip().lower()
+
+        if permission not in {
+            "yes",
+            "y",
+            "i agree",
+            "i consent",
+            "consent",
+            "confirmed",
+        }:
+            logger.warning(
+                "Escalation blocked because permission was not confirmed."
+            )
+            return (
+                "The human-support request was not created because "
+                "the caller did not explicitly give permission to "
+                "share the information."
+            )
+
+        reason = reason.strip()
+        summary = summary.strip()
+        agent_checked = agent_checked.strip()
+        urgency = urgency.strip().upper()
+        language = language.strip()
+        follow_up_method = follow_up_method.strip()
+
+        if not reason:
+            return (
+                "The human-support request could not be created "
+                "because the reason was missing."
+            )
+
+        if not summary:
+            return (
+                "The human-support request could not be created "
+                "because the summary was missing."
+            )
+
+        if not language:
+            language = (
+                self.pending_memory.get("language_preference")
+                or "Not specified"
+            )
+
+        if not follow_up_method:
+            follow_up_method = "Not specified"
+
+        if urgency not in {
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "EMERGENCY",
+        }:
+            urgency = "MEDIUM"
+
+        try:
+            ticket_id = save_escalation(
+                user_id=self.user_id,
+                reason=reason,
+                summary=summary,
+                agent_checked=agent_checked,
+                urgency=urgency,
+                language=language,
+                follow_up_method=follow_up_method,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create human escalation"
+            )
+            return (
+                "I couldn't create the human-support request "
+                "right now. Please try again."
+            )
+
+        logger.info(
+            "Created human escalation %s for user %s",
+            ticket_id,
+            self.user_id,
+        )
+
+        return (
+            f"Human-support request created successfully. "
+            f"Reference ID: {ticket_id}. "
+            "Tell the caller this reference ID and explain that "
+            "the request has been submitted for human review. "
+            "Do not promise an immediate response."
+        )
+
+
     # ========================================================
     # OUTBOUND VACCINATION REMINDER
     # ========================================================

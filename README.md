@@ -124,6 +124,28 @@ Arogya can now proactively call the user, deliver the requested healthcare remin
 
 ---
 
+### Day 7 – Human Help & Escalation 🤝
+
+Taught Arogya to recognize when a healthcare request should be handled by a human instead of trying to solve everything on its own.
+
+- Added human escalation for red-flag symptoms
+- Added escalation for diagnosis requests
+- Added a `create_escalation` tool for creating human-support requests
+- Added permission-based information sharing before creating an escalation
+- Added concise human-readable summaries with the user's issue, agent checks, urgency, language and preferred follow-up method
+- Added protection against sharing sensitive information such as OTPs, PINs, passwords and account numbers
+- Added unique escalation reference IDs for tracking requests
+- Added a Human Support Dashboard to view created tickets
+- Added ticket status management from Open to In Progress to Resolved
+- Added automatic dashboard updates for newly created requests
+- Tested both escalation and normal conversation paths
+
+Arogya can now recognize when human support is needed, ask the caller for permission before sharing information, create a real support request, provide a reference ID, and give the human support team a clear workflow for handling it.
+
+**Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini and Silero
+
+---
+
 ## Why Murf Falcon
 
 - **55ms model latency** - fastest production TTS
