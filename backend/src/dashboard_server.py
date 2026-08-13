@@ -3,11 +3,18 @@ from http.server import (
     BaseHTTPRequestHandler,
     ThreadingHTTPServer,
 )
-from urllib.parse import urlparse
+from urllib.parse import (
+    parse_qs,
+    urlparse,
+)
 
 from escalation import (
     get_all_escalations,
     update_escalation_status,
+)
+
+from analytics import (
+    get_analytics,
 )
 
 
@@ -51,6 +58,11 @@ class Handler(BaseHTTPRequestHandler):
         )
 
         self.send_header(
+            "Cache-Control",
+            "no-store",
+        )
+
+        self.send_header(
             "Content-Length",
             str(len(raw)),
         )
@@ -84,9 +96,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
 
-        path = urlparse(
+        parsed_url = urlparse(
             self.path
-        ).path
+        )
+
+        path = parsed_url.path
+
+        query = parse_qs(
+            parsed_url.query
+        )
+
+
+        # ============================================================
+        # DAY 7 - HUMAN SUPPORT TICKETS
+        # ============================================================
 
         if path == "/api/tickets":
 
@@ -112,6 +135,74 @@ class Handler(BaseHTTPRequestHandler):
             return
 
 
+        # ============================================================
+        # DAY 8 - CALL ANALYTICS
+        # ============================================================
+
+        if path == "/api/analytics":
+
+            try:
+
+                start_date = query.get(
+                    "start_date",
+                    [None],
+                )[0]
+
+                end_date = query.get(
+                    "end_date",
+                    [None],
+                )[0]
+
+                channel = query.get(
+                    "channel",
+                    [None],
+                )[0]
+
+                language = query.get(
+                    "language",
+                    [None],
+                )[0]
+
+                outcome = query.get(
+                    "outcome",
+                    [None],
+                )[0]
+
+
+                analytics = get_analytics(
+                    start_date=start_date,
+                    end_date=end_date,
+                    channel=channel,
+                    language=language,
+                    outcome=outcome,
+                )
+
+
+                self.send_json(
+                    analytics
+                )
+
+            except Exception as error:
+
+                print(
+                    "Analytics error:",
+                    error,
+                )
+
+                self.send_json(
+                    {
+                        "error": str(error)
+                    },
+                    500,
+                )
+
+            return
+
+
+        # ============================================================
+        # NOT FOUND
+        # ============================================================
+
         self.send_json(
             {
                 "error": "Not found"
@@ -122,9 +213,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
 
-        path = urlparse(
+        parsed_url = urlparse(
             self.path
-        ).path
+        )
+
+        path = parsed_url.path
+
+
+        # ============================================================
+        # DAY 7 - UPDATE ESCALATION STATUS
+        # ============================================================
 
         if path != "/api/tickets/status":
 
@@ -147,9 +245,11 @@ class Handler(BaseHTTPRequestHandler):
                 )
             )
 
+
             raw_body = self.rfile.read(
                 content_length
             )
+
 
             payload = json.loads(
                 raw_body.decode("utf-8")
@@ -157,19 +257,18 @@ class Handler(BaseHTTPRequestHandler):
                 else "{}"
             )
 
-            ticket_id = (
-                payload.get(
-                    "ticket_id",
-                    "",
-                )
+
+            ticket_id = payload.get(
+                "ticket_id",
+                "",
             )
 
-            status = (
-                payload.get(
-                    "status",
-                    "",
-                )
+
+            status = payload.get(
+                "status",
+                "",
             )
+
 
             updated = (
                 update_escalation_status(
@@ -177,6 +276,7 @@ class Handler(BaseHTTPRequestHandler):
                     status,
                 )
             )
+
 
             if not updated:
 
@@ -198,7 +298,13 @@ class Handler(BaseHTTPRequestHandler):
                 }
             )
 
+
         except Exception as error:
+
+            print(
+                "Ticket update error:",
+                error,
+            )
 
             self.send_json(
                 {
@@ -209,12 +315,38 @@ class Handler(BaseHTTPRequestHandler):
             )
 
 
+    def log_message(
+        self,
+        format,
+        *args,
+    ):
+
+        # Keep the terminal output useful
+        # without printing every browser request.
+        if "/api/analytics" not in str(args):
+            super().log_message(
+                format,
+                *args,
+            )
+
+
 if __name__ == "__main__":
 
     print(
-        "Arogya escalation API running at "
+        "Arogya dashboard API running at "
         f"http://{HOST}:{PORT}"
     )
+
+    print(
+        "Analytics endpoint:"
+        f" http://{HOST}:{PORT}/api/analytics"
+    )
+
+    print(
+        "Tickets endpoint:"
+        f" http://{HOST}:{PORT}/api/tickets"
+    )
+
 
     server = ThreadingHTTPServer(
         (
@@ -224,4 +356,17 @@ if __name__ == "__main__":
         Handler,
     )
 
-    server.serve_forever()
+
+    try:
+
+        server.serve_forever()
+
+    except KeyboardInterrupt:
+
+        print(
+            "\nArogya dashboard API stopped."
+        )
+
+    finally:
+
+        server.server_close()

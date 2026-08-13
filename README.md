@@ -146,6 +146,25 @@ Arogya can now recognize when human support is needed, ask the caller for permis
 
 ---
 
+### Day 8 – Multilingual & Low-Latency Voice Experience 🌐⚡
+
+Improved Arogya to make healthcare conversations more accessible across languages while reducing unnecessary response delays.
+
+- Added automatic language detection for user conversations
+- Added language-aware responses that mirror the user's language exactly
+- Added support for multilingual and mixed-language conversations
+- Updated the agent instructions to maintain the detected language throughout the conversation
+- Prevented unnecessary language switching or translation
+- Optimized the voice-agent flow to reduce response latency
+- Improved conversation responsiveness for a faster and more natural voice experience
+- Tested language handling and latency improvements across conversations
+
+Arogya can now communicate naturally in the user's preferred language while providing faster responses, making the healthcare voice experience more accessible and responsive.
+
+**Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini and Silero
+
+---
+
 ## Why Murf Falcon
 
 - **55ms model latency** - fastest production TTS

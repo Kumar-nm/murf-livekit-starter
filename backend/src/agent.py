@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import sqlite3
 import sys
 import urllib.parse
@@ -40,6 +41,11 @@ from livekit.plugins import (
     silero,
 )
 from escalation import create_escalation as save_escalation
+from analytics import (
+    create_call as create_analytics_call,
+    finalize_call as finalize_analytics_call,
+    update_call_context as update_analytics_context,
+)
 
 # ============================================================
 # LOGGING
@@ -395,6 +401,37 @@ healthy lifestyle questions, or healthcare facility lookups.
 If you are unsure, clearly say so and recommend consulting
 a qualified healthcare professional.
 
+CALL ANALYTICS:
+
+A successful call means the intended user task was completed.
+
+A human-support escalation that is successfully created after
+permission is a successful outcome.
+
+After you have actually completed the user's intended task,
+call record_call_outcome with outcome "success".
+
+Use these result types:
+
+guidance_provided
+reminder_completed
+facility_lookup_completed
+escalation_created
+task_completed
+
+Use a concise purpose such as:
+
+health_guidance
+reminder
+facility_lookup
+human_escalation
+
+If the user explicitly ends the interaction before the task
+is complete, do not falsely mark it successful.
+
+If the call ends without a recorded success, the backend will
+record the call as failed.
+
 LANGUAGE:
 
 Detect the user's language automatically.
@@ -403,17 +440,17 @@ Mirror the user's language exactly.
 
 If the user speaks English, reply in English.
 
-If the user speaks Hindi, reply in Hindi.
+If the user speaks any other language , reply in that language.
 
-If the user mixes Hindi and English, reply in the
+If the user mixes another language and English, reply in the
 same mixed style.
 
 Do not convert mixed-language conversations into
-only English or only Hindi.
+only English or only the other language.
 
 Always write every language in its own native script.
 
-    Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
+   example:if  Hindi → Devanagari (नमस्ते), never romanized (never "namaste").
     Same rule for all non-English languages.
 
 Keep replies short because they are spoken aloud.
@@ -579,6 +616,7 @@ class Assistant(Agent):
         user_id: str,
         call_id: str,
         call_start: str,
+        call_channel: str,
         chat_ctx: ChatContext,
         tools=None,
     ) -> None:
@@ -592,6 +630,17 @@ class Assistant(Agent):
         self.user_id = user_id
         self.call_id = call_id
         self.call_start = call_start
+        self.call_channel = call_channel
+
+        self.analytics_outcome = None
+        self.analytics_success_type = None
+        self.analytics_failure_type = None
+        self.analytics_purpose = None
+        self.analytics_language = None
+        self.analytics_latency_ms = None
+        self.analytics_finalized = False
+        self.last_user_transcript_at = None
+        self.facility_lookup_completed = False
 
         self.pending_memory = {
             "name": "",
@@ -620,6 +669,170 @@ class Assistant(Agent):
     # ========================================================
     # DEVICE LOCATION
     # ========================================================
+    @function_tool
+    async def record_call_outcome(
+        self,
+        context: RunContext,
+        outcome: str,
+        purpose: str,
+        result_type: str,
+    ) -> str:
+        """Record the business outcome of the current call."""
+
+        outcome = outcome.strip().lower()
+        purpose = purpose.strip().lower()
+        result_type = result_type.strip().lower()
+
+        if outcome not in {
+            "success",
+            "failed",
+        }:
+            return (
+                "Outcome must be either "
+                "success or failed."
+            )
+
+        success_types = {
+            "guidance_provided",
+            "reminder_completed",
+            "facility_lookup_completed",
+            "escalation_created",
+            "task_completed",
+            "other_success",
+        }
+
+        failure_types = {
+            "user_hangup",
+            "incomplete_task",
+            "tool_failure",
+            "api_error",
+            "no_response",
+            "other_failure",
+        }
+
+        if outcome == "success":
+
+            if (
+                result_type == "facility_lookup_completed"
+                and not self.facility_lookup_completed
+            ):
+                return (
+                    "A facility lookup has not been completed. "
+                    "Only record facility_lookup_completed after "
+                    "the healthcare facility tool returns valid results."
+                )
+
+            if result_type not in success_types:
+                result_type = "other_success"
+
+            self.analytics_success_type = (
+                result_type
+            )
+
+            self.analytics_failure_type = None
+
+        else:
+
+            if result_type not in failure_types:
+                result_type = "other_failure"
+
+            self.analytics_failure_type = (
+                result_type
+            )
+
+            self.analytics_success_type = None
+
+        self.analytics_outcome = outcome
+
+        self.analytics_purpose = (
+            purpose
+            or "general_health"
+        )
+
+        update_analytics_context(
+            self.call_id,
+            language=self.analytics_language,
+            purpose=self.analytics_purpose,
+            latency_ms=self.analytics_latency_ms,
+        )
+
+        logger.info(
+            "Call outcome recorded: "
+            "call=%s outcome=%s type=%s purpose=%s",
+            self.call_id,
+            outcome,
+            result_type,
+            self.analytics_purpose,
+        )
+
+        return (
+            "The call outcome was recorded."
+        )
+
+
+    def finalize_call_analytics(
+        self,
+        reason: str = "session_closed",
+    ) -> None:
+
+        if self.analytics_finalized:
+            return
+
+        self.analytics_finalized = True
+
+        outcome = self.analytics_outcome
+
+        success_type = (
+            self.analytics_success_type
+        )
+
+        failure_type = (
+            self.analytics_failure_type
+        )
+
+        if outcome not in {
+            "success",
+            "failed",
+        }:
+
+            outcome = "failed"
+
+            if reason == "no_response":
+                failure_type = "no_response"
+
+            elif reason == "agent_error":
+                failure_type = "api_error"
+
+            else:
+                failure_type = "user_hangup"
+
+        ended_at = (
+            datetime.now().isoformat(
+                timespec="seconds"
+            )
+        )
+
+        try:
+
+            finalize_analytics_call(
+                self.call_id,
+                outcome=outcome,
+                ended_at=ended_at,
+                success_type=success_type,
+                failure_type=failure_type,
+                language=self.analytics_language,
+                purpose=self.analytics_purpose,
+                latency_ms=self.analytics_latency_ms,
+                notes=reason,
+            )
+
+        except Exception:
+
+            logger.exception(
+                "Failed to finalize analytics "
+                "for call %s",
+                self.call_id,
+            )
 
     async def set_device_location(
         self,
@@ -1553,6 +1766,22 @@ async def my_agent(
             timespec="seconds"
         )
     )
+    participant_kind = str(
+        participant.kind
+    ).lower()
+
+    call_channel = (
+        "sip"
+        if "sip" in participant_kind
+        else "browser"
+    )
+
+    create_analytics_call(
+        call_id=call_id,
+        user_id=user_id,
+        started_at=call_start,
+        channel=call_channel,
+    )
 
 
     saved_history = (
@@ -1651,6 +1880,8 @@ async def my_agent(
                 raw_text
             )
 
+            if isinstance(data, (list, dict)) and data:
+                assistant.facility_lookup_completed = True
 
             # This will be assigned immediately
             # after Assistant is created.
@@ -1724,6 +1955,7 @@ async def my_agent(
         user_id=user_id,
         call_id=call_id,
         call_start=call_start,
+        call_channel=call_channel,
         chat_ctx=chat_ctx,
         tools=[
             mcp_toolset,
@@ -1820,6 +2052,166 @@ async def my_agent(
         preemptive_generation=True,
     )
 
+
+    #-----------
+
+    @session.on("user_input_transcribed")
+    def on_user_input_transcribed(event):
+
+        if not event.is_final:
+            return
+
+        logger.info(
+            "LANGUAGE DEBUG: language=%r source_languages=%r transcript=%r",
+            getattr(event, "language", None),
+            getattr(event, "source_languages", None),
+            event.transcript,
+        )
+
+        assistant.last_user_transcript_at = (
+            time.time()
+        )
+
+        language = getattr(
+            event,
+            "language",
+            None,
+        )
+
+        if language:
+
+            language_text = str(
+                language
+            ).strip()
+
+            language_key = (
+                language_text
+                .lower()
+                .replace("_", "-")
+            )
+
+            language_names = {
+                "en": "English",
+                "en-in": "English",
+                "en-us": "English",
+                "en-gb": "English",
+                "hi": "Hindi",
+                "hi-in": "Hindi",
+                "kn": "Kannada",
+                "kn-in": "Kannada",
+                "ta": "Tamil",
+                "ta-in": "Tamil",
+                "te": "Telugu",
+                "te-in": "Telugu",
+                "ml": "Malayalam",
+                "ml-in": "Malayalam",
+            }
+
+            assistant.analytics_language = (
+                language_names.get(
+                    language_key,
+                    language_text,
+                )
+            )
+
+            update_analytics_context(
+                assistant.call_id,
+                language=
+                    assistant.analytics_language,
+            )
+
+
+    @session.on("agent_state_changed")
+    def on_agent_state_changed(event):
+
+        if event.new_state != "speaking":
+            return
+
+        if (
+            assistant.last_user_transcript_at
+            is None
+        ):
+            return
+
+        latency_ms = max(
+            0.0,
+            (
+                time.time()
+                - assistant.last_user_transcript_at
+            )
+            * 1000,
+        )
+
+        assistant.analytics_latency_ms = (
+            latency_ms
+        )
+
+        logger.info(
+            "Analytics latency: call=%s latency_ms=%.2f",
+            assistant.call_id,
+            latency_ms,
+        )
+
+        assistant.last_user_transcript_at = None
+
+        update_analytics_context(
+            assistant.call_id,
+            latency_ms=latency_ms,
+            language=
+                assistant.analytics_language,
+        )
+
+
+    @session.on("user_state_changed")
+    def on_user_state_changed(event):
+
+        if (
+            event.new_state == "away"
+            and assistant.analytics_outcome
+            is None
+        ):
+
+            assistant.analytics_failure_type = (
+                "no_response"
+            )
+
+
+    @session.on("error")
+    def on_session_error(event):
+
+        if assistant.analytics_outcome is None:
+
+            assistant.analytics_outcome = (
+                "failed"
+            )
+
+            assistant.analytics_failure_type = (
+                "api_error"
+            )
+
+
+    @session.on("close")
+    def on_session_close(event):
+
+        reason = "session_closed"
+
+        if (
+            assistant.analytics_failure_type
+            == "no_response"
+        ):
+
+            reason = "no_response"
+
+        elif (
+            assistant.analytics_failure_type
+            == "api_error"
+        ):
+
+            reason = "agent_error"
+
+        assistant.finalize_call_analytics(
+            reason
+        )
 
     # --------------------------------------------------------
     # START

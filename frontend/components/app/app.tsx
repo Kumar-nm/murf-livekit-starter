@@ -77,7 +77,7 @@ export function App({
           href="/dashboard"
           className="absolute bottom-7 right-5 z-50 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition hover:bg-black/60"
         >
-          Human Support Dashboard
+          AGENT Dashboard
         </Link>
 
         <ViewController
