@@ -164,6 +164,25 @@ Arogya can now communicate naturally in the user's preferred language while prov
 **Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini and Silero
 
 ---
+### Day 9 – Specialist Agent & Smart Handoff 🏥🤝
+
+Made Arogya more modular by introducing a dedicated **Clinic & Appointment Specialist Agent** for focused healthcare facility-related conversations.
+
+- Created a separate specialist agent for hospitals, clinics, doctors, healthcare facilities and appointment-related queries
+- Added intelligent handoff from the main Arogya agent to the specialist when a request needs specialized facility assistance
+- Passed the existing conversation context during handoff so users don't have to repeat their request
+- Added reverse handoff to return the conversation to Arogya when the user changes to a general healthcare topic
+- Added Foursquare integration alongside the existing OpenStreetMap healthcare lookup
+- Added facility details, healthcare specialty search, user tips/feedback and facility comparison
+- Added structured large-data display so facility and nutrition information can be shown in tables instead of being read out entirely by voice
+- Kept Arogya focused on general healthcare while giving the specialist a smaller, well-defined responsibility
+- Tested both normal conversations and specialist handoff flows
+
+Arogya can now **decide when to handle a request itself and when to delegate it to a specialist**, creating a more scalable and natural multi-agent healthcare experience.
+
+**Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini, Silero, OpenStreetMap and Foursquare
+
+---
 
 ## Why Murf Falcon
 

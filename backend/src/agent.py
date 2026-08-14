@@ -41,6 +41,7 @@ from livekit.plugins import (
     silero,
 )
 from escalation import create_escalation as save_escalation
+from clinic_specialist import ClinicSpecialist
 from analytics import (
     create_call as create_analytics_call,
     finalize_call as finalize_analytics_call,
@@ -346,6 +347,33 @@ condition, or symptom, do not provide a diagnosis.
 Explain that you cannot diagnose them and offer to send
 a short summary to human health support for review.
 
+NUTRITION DISPLAY:
+
+When the user asks for detailed nutrition information
+about a food or food product, use the analyze_nutrients tool.
+
+Examples:
+
+"What nutrients are in a banana?"
+"Show me the nutrition of oats."
+"How much protein is in this food?"
+"Give me the calories, vitamins and minerals in this."
+"Analyze the nutrition of this product."
+
+For detailed nutrition requests, prefer the visual table
+instead of reading every nutrient aloud.
+
+After the tool successfully displays the information,
+give only a short spoken summary.
+
+Do not repeat the entire table through voice.
+
+If the user asks for a simple nutrition fact, such as
+"How many calories are in an apple?", a short spoken answer
+is acceptable. Use the visual table when the user asks for
+detailed nutrition, multiple nutrients, vitamins, minerals,
+macros, or a nutrient analysis.
+
 HUMAN SUPPORT ESCALATION:
 
 There are two situations where you should offer human
@@ -424,6 +452,7 @@ Use a concise purpose such as:
 health_guidance
 reminder
 facility_lookup
+clinic_appointment
 human_escalation
 
 If the user explicitly ends the interaction before the task
@@ -507,48 +536,40 @@ for a place or district.
 
 
 
-HEALTHCARE FACILITY TOOL:
+HEALTHCARE FACILITY AND APPOINTMENT SPECIALIST:
 
-The MCP tool is named
-find_nearby_health_facilities.
+A dedicated Clinic and Appointment Specialist handles
+clinic, hospital, doctor, PHC, healthcare facility, and
+appointment requests.
 
-Use it when the user asks to find a nearby:
+When the user asks to:
+- find a nearby clinic, hospital, doctor, PHC, or healthcare facility
+- compare healthcare facilities
+- choose a suitable healthcare facility
+- ask about facility details
+- get help with an appointment
+- book, schedule, or prepare for an appointment
 
-hospital,
-clinic,
-doctor,
-PHC,
-primary health centre,
-health centre,
-healthcare facility,
-or similar medical location.
+ALWAYS use handoff_to_clinic_specialist.
 
-Do not use the tool for general health questions.
+Before handing off, briefly tell the user that you will
+connect them to the clinic and appointment specialist.
+Do not make the user repeat their request.
 
-When using the tool:
+The specialist has access to the existing
+find_nearby_health_facilities MCP tool and the same
+session location and memory state.
 
-Use the current device coordinates if available.
+Do NOT hand off ordinary health questions, medication
+questions, reminders, emergencies, diagnosis requests,
+or human-support escalation requests.
 
-Otherwise use the remembered district.
+The specialist must never invent facility names, distances,
+addresses, opening hours, availability, or services.
 
-If the user explicitly gives a place, use that place.
-
-Do not ask for the district again if a valid location
-is already available.
-
-Do not invent facility names, distances, addresses,
-opening hours, availability, or services.
-
-The tool returns live OpenStreetMap data and its
-fetch timestamp.
-
-Speak useful results naturally instead of reading
-JSON.
-
-If the tool fails, clearly tell the user that the
-facility information is unavailable right now.
-
-Never invent a result after a tool failure.
+If the specialist cannot handle the request or the user
+changes to a general health topic, it can hand the
+conversation back to Arogya.
 
 MEMORY PERSISTENCE:
 
@@ -603,6 +624,220 @@ IMPORTANT:
 After scheduling the call, tell the user when the call
 will happen.
 """
+
+def get_food_nutrition(food_name: str) -> dict:
+    """
+    Fetch nutrition information from Open Food Facts.
+
+    Uses the public read API. No API key is required.
+    """
+
+    food_name = food_name.strip()
+
+    if not food_name:
+        raise ValueError("Food name is required.")
+
+    # Open Food Facts legacy search endpoint supports
+    # plain-text search.
+    params = urllib.parse.urlencode({
+        "search_terms": food_name,
+        "search_simple": "1",
+        "action": "process",
+        "json": "1",
+        "page_size": "5",
+        "fields": (
+            "product_name,brands,nutriments,"
+            "serving_size,nutrition_grades"
+        ),
+    })
+
+    url = (
+        "https://world.openfoodfacts.org/cgi/search.pl?"
+        + params
+    )
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent":
+                "ArogyaHealthAccess/1.0 "
+                "(10DaysOfVoiceAgents)",
+            "Accept":
+                "application/json",
+        },
+    )
+
+    with urllib.request.urlopen(
+        request,
+        timeout=15,
+    ) as response:
+
+        payload = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    products = payload.get(
+        "products",
+        [],
+    )
+
+    if not products:
+        raise ValueError(
+            f"No nutrition data found for {food_name}."
+        )
+
+    # Prefer a product that actually contains
+    # useful nutrition information.
+    product = None
+
+    for candidate in products:
+
+        nutriments = candidate.get(
+            "nutriments",
+            {},
+        )
+
+        if nutriments:
+            product = candidate
+            break
+
+    if product is None:
+        raise ValueError(
+            f"No usable nutrition data found for {food_name}."
+        )
+
+    nutriments = product.get(
+        "nutriments",
+        {},
+    )
+
+    product_name = (
+        product.get("product_name")
+        or food_name
+    )
+
+    brands = (
+        product.get("brands")
+        or ""
+    )
+
+    serving_size = (
+        product.get("serving_size")
+        or "per 100 g"
+    )
+
+    rows = []
+
+    nutrient_map = [
+        (
+            "Energy",
+            "energy-kcal_100g",
+            "kcal",
+        ),
+        (
+            "Protein",
+            "proteins_100g",
+            "g",
+        ),
+        (
+            "Carbohydrates",
+            "carbohydrates_100g",
+            "g",
+        ),
+        (
+            "Sugars",
+            "sugars_100g",
+            "g",
+        ),
+        (
+            "Fat",
+            "fat_100g",
+            "g",
+        ),
+        (
+            "Saturated Fat",
+            "saturated-fat_100g",
+            "g",
+        ),
+        (
+            "Fiber",
+            "fiber_100g",
+            "g",
+        ),
+        (
+            "Salt",
+            "salt_100g",
+            "g",
+        ),
+        (
+            "Sodium",
+            "sodium_100g",
+            "mg",
+        ),
+        (
+            "Potassium",
+            "potassium_100g",
+            "mg",
+        ),
+        (
+            "Calcium",
+            "calcium_100g",
+            "mg",
+        ),
+        (
+            "Iron",
+            "iron_100g",
+            "mg",
+        ),
+        (
+            "Vitamin C",
+            "vitamin-c_100g",
+            "mg",
+        ),
+    ]
+
+    for label, key, unit in nutrient_map:
+
+        value = nutriments.get(key)
+
+        if value is None:
+            continue
+
+        try:
+            numeric_value = float(value)
+
+            if numeric_value.is_integer():
+                formatted = str(
+                    int(numeric_value)
+                )
+            else:
+                formatted = f"{numeric_value:.2f}"
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            formatted = str(value)
+
+        rows.append({
+            "Nutrient": label,
+            "Amount": (
+                f"{formatted} {unit}"
+            ),
+        })
+
+    if not rows:
+        raise ValueError(
+            f"Nutrition values were unavailable "
+            f"for {food_name}."
+        )
+
+    return {
+        "product_name": product_name,
+        "brands": brands,
+        "serving_size": serving_size,
+        "rows": rows,
+    }
 
 
 # ============================================================
@@ -664,6 +899,130 @@ class Assistant(Agent):
         self.current_room = None
 
         self.location_task = None
+
+        # Shared tools/state used when handing the conversation
+        # to the Clinic and Appointment Specialist.
+        self.shared_specialist_tools = []
+
+
+    # ========================================================
+    # DAY 9 - SPECIALIST HANDOFF
+    # ========================================================
+    
+    @function_tool
+    async def handoff_to_clinic_specialist(
+        self,
+        context: RunContext,
+    ) -> tuple[Agent, str]:
+        """Transfer clinic, facility, or appointment requests to the
+        dedicated Clinic and Appointment Specialist.
+
+        Use this only when the user needs clinic, hospital, doctor,
+        PHC, healthcare facility, or appointment assistance.
+        Do not use it for general health questions, reminders,
+        emergencies, diagnosis requests, or human escalation.
+        """
+
+        logger.info(
+            "Attempting handoff from Arogya to Clinic Specialist: user=%s call=%s",
+            self.user_id,
+            self.call_id,
+        )
+
+        try:
+            # Preserve the conversation but do not copy Arogya's
+            # system prompt into the specialist.
+            specialist_ctx = self.chat_ctx.copy(
+                exclude_instructions=True,
+                exclude_handoff=True,
+                exclude_config_update=True,
+            )
+
+            # Add the shared application state explicitly so the
+            # specialist can use the saved district/location without
+            # asking the user to repeat it.
+            district = (
+                self.pending_memory.get("district")
+                or "not available"
+            )
+
+            if self.device_location:
+                location_state = (
+                    "Device location is available. "
+                    f"Latitude: {self.device_location['latitude']:.6f}. "
+                    f"Longitude: {self.device_location['longitude']:.6f}."
+                )
+            else:
+                location_state = "Device location is not currently available."
+
+            shared_state = (
+                "Shared Arogya session state for the specialist. "
+                f"User ID: {self.user_id}. "
+                f"Saved district: {district}. "
+                f"{location_state} "
+                "Use this information when appropriate and never ask for "
+                "information that is already present in the conversation."
+            )
+
+            specialist_ctx.add_message(
+                role="system",
+                content=shared_state,
+            )
+
+            specialist = ClinicSpecialist(
+                chat_ctx=specialist_ctx,
+                parent_assistant=self,
+                tools=self.shared_specialist_tools,
+            )
+
+            logger.info(
+                "Handoff prepared successfully: user=%s",
+                self.user_id,
+            )
+
+            return (
+                specialist,
+                "I’ll connect you to our clinic and appointment specialist.",
+            )
+
+        except Exception:
+            logger.exception(
+                "Clinic Specialist handoff failed for user=%s",
+                self.user_id,
+            )
+
+            # Returning the current agent keeps the conversation alive.
+            return (
+                self,
+                "I’m unable to connect you to the clinic specialist right now, so I’ll continue helping you here.",
+            )
+
+    async def on_enter(self) -> None:
+        """
+        Called whenever Arogya becomes active again.
+
+        If this is a reverse handoff, the latest system message
+        already contains the user's new request, so immediately
+        generate the response.
+        """
+
+        logger.info(
+            "Arogya became active: user=%s call=%s",
+            self.user_id,
+            self.call_id,
+        )
+
+        await self.session.generate_reply(
+            instructions=(
+                "You have just received control back from the "
+                "Clinic and Appointment Specialist.\n"
+                "The user's new request is already present in "
+                "the conversation context.\n"
+                "Answer that request immediately.\n"
+                "Do not ask the user to repeat it.\n"
+                "Do not explain the handoff process."
+            )
+        )
 
 
     # ========================================================
@@ -1513,7 +1872,224 @@ class Assistant(Agent):
                 "Failed to publish healthcare results"
             )
 
+    @function_tool
+    async def display_large_data(
+        self,
+        context: RunContext,
+        title: str,
+        columns: str,
+        rows: str,
+        description: str = "",
+    ) -> str:
+        """
+        Display detailed structured information on the user's screen.
 
+        Use this when information is better shown visually instead
+        of being read completely through voice.
+        """
+
+        if self.current_room is None:
+            return (
+                "The visual display is unavailable. "
+                "Give the user a concise spoken summary instead."
+            )
+
+        try:
+            parsed_columns = json.loads(columns)
+            parsed_rows = json.loads(rows)
+
+            if not isinstance(parsed_columns, list):
+                raise ValueError("columns must be a JSON array")
+
+            if not isinstance(parsed_rows, list):
+                raise ValueError("rows must be a JSON array")
+
+            parsed_columns = [
+                str(column)
+                for column in parsed_columns[:12]
+            ]
+
+            cleaned_rows = []
+
+            for row in parsed_rows[:50]:
+
+                if not isinstance(row, dict):
+                    continue
+
+                cleaned_row = {}
+
+                for column in parsed_columns:
+
+                    value = row.get(
+                        column,
+                        "",
+                    )
+
+                    if value is None:
+                        value = ""
+
+                    cleaned_row[column] = str(
+                        value
+                    )[:500]
+
+                cleaned_rows.append(
+                    cleaned_row
+                )
+
+            payload = {
+                "type": "data_display",
+                "title": title[:200],
+                "description": description[:500],
+                "columns": parsed_columns,
+                "rows": cleaned_rows,
+            }
+
+            await (
+                self.current_room
+                .local_participant
+                .publish_data(
+                    json.dumps(
+                        payload,
+                        ensure_ascii=False,
+                    ).encode("utf-8"),
+                    reliable=True,
+                    destination_identities=[
+                        self.user_id
+                    ],
+                    topic="arogya-health",
+                )
+            )
+
+            logger.info(
+                "Published large data to UI: "
+                "title=%s rows=%s",
+                title,
+                len(cleaned_rows),
+            )
+
+            return (
+                "The detailed information is now displayed "
+                "on the user's screen. Give a short spoken "
+                "summary instead of reading the entire table."
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to publish large data"
+            )
+
+            return (
+                "The visual display failed. "
+                "Give the user a concise spoken summary instead."
+            )
+
+
+    @function_tool
+    async def analyze_nutrients(
+        self,
+        context: RunContext,
+        food_name: str,
+    ) -> str:
+        """
+        Get nutrition information for a food and display
+        the detailed nutrient table on the user's screen.
+
+        Use this when the user asks for detailed nutrition,
+        nutrients, calories, macros, vitamins, or minerals
+        in a food or food product.
+
+        Do not read the entire nutrient table aloud.
+        Display it visually and give only a short summary.
+        """
+
+        food_name = food_name.strip()
+
+        if not food_name:
+            return (
+                "Please provide the name of the food "
+                "you want nutrition information for."
+            )
+
+        logger.info(
+            "Nutrition analysis requested: %s",
+            food_name,
+        )
+
+        try:
+            nutrition = await asyncio.to_thread(
+                get_food_nutrition,
+                food_name,
+            )
+
+            product_name = nutrition[
+                "product_name"
+            ]
+
+            brands = nutrition[
+                "brands"
+            ]
+
+            serving_size = nutrition[
+                "serving_size"
+            ]
+
+            rows = nutrition[
+                "rows"
+            ]
+
+            description = (
+                f"Nutrition information for "
+                f"{product_name}. "
+                f"Values are based on "
+                f"{serving_size}."
+            )
+
+            if brands:
+                description += (
+                    f" Product/brand: {brands}."
+                )
+
+            result = await self.display_large_data(
+                context=context,
+                title=(
+                    f"Nutrition: {product_name}"
+                ),
+                columns=json.dumps(
+                    [
+                        "Nutrient",
+                        "Amount",
+                    ],
+                    ensure_ascii=False,
+                ),
+                rows=json.dumps(
+                    rows,
+                    ensure_ascii=False,
+                ),
+                description=description,
+            )
+
+            logger.info(
+                "Nutrition table displayed: "
+                "food=%s rows=%d",
+                food_name,
+                len(rows),
+            )
+
+            return result
+
+        except Exception as exc:
+
+            logger.exception(
+                "Nutrition lookup failed: %s",
+                food_name,
+            )
+
+            return (
+                f"I couldn't find reliable nutrition "
+                f"data for {food_name}. "
+                "Please try a more specific food or "
+                "packaged product name."
+            )
     # ========================================================
     # SAVE DATABASE
     # ========================================================
@@ -1891,7 +2467,8 @@ async def my_agent(
 
 
             logger.info(
-                "MCP healthcare result received"
+                "MCP healthcare result received for call=%s (main/specialist shared toolset)",
+                assistant.call_id,
             )
 
             return json.dumps(
@@ -1957,10 +2534,15 @@ async def my_agent(
         call_start=call_start,
         call_channel=call_channel,
         chat_ctx=chat_ctx,
-        tools=[
-            mcp_toolset,
-        ],
+        
     )
+
+    # The existing Day 5 healthcare MCP tool is now owned by the
+    # specialist. The main agent routes clinic/facility requests
+    # through handoff_to_clinic_specialist instead of calling it directly.
+    assistant.shared_specialist_tools = [
+        mcp_toolset,
+    ]
 
     assistant.current_room = (
         ctx.room
