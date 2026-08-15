@@ -1,15 +1,241 @@
-# Voice Agent Starter — Powered by Murf Falcon
+# Arogya Health Access 🩺
 
-Build a production voice AI agent in 5 minutes. Powered by the fastest TTS on the market - swap the system prompt to build anything from customer support to language tutors.
+A voice-first healthcare assistant built for the **10 Days of Voice Agents — VoiceForBharat Edition** by [Murf AI](https://www.linkedin.com/company/murf-ai/).
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-6366F1)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+Arogya is designed to make healthcare information and assistance more accessible through natural, real-time voice conversations.
+
+It combines multilingual voice interaction, memory, live healthcare data, outbound calls, human escalation, call analytics, and specialist agent handoffs.
+
+**Powered by Murf Falcon, LiveKit, Gemini, Deepgram, Next.js, React, MCP, OpenStreetMap and Foursquare.**
 
 ---
+
+## The Problem
+
+Accessing healthcare information can be difficult when users have to rely entirely on typing, navigate multiple services, or communicate in a language they are less comfortable using.
+
+Arogya takes a **voice-first approach** to healthcare access.
+
+The goal is not to replace healthcare professionals or provide medical diagnosis. Instead, Arogya helps users interact with healthcare information more naturally, find relevant healthcare facilities, receive reminders, and reach human support when an AI assistant should not handle the request alone.
+
+Voice is particularly useful for users who may prefer speaking over typing, including users communicating in Indian languages or through mixed-language conversations.
+
 ---
 
-## 10 Days of Voice Agents – Arogya Health Access 🩺
+## What is Arogya?
 
-Building Arogya Health Access as part of the **10 Days of Voice Agents** challenge by Murf AI.
+Arogya Health Access is a voice-first healthcare assistant designed to make healthcare information and assistance more accessible through natural voice conversations.
+
+Arogya can:
+
+- 🎙️ Have real-time voice conversations
+- 🌐 Understand multilingual and code-mixed conversations
+- 🧠 Remember useful information for returning users with consent
+- 🔧 Find nearby healthcare facilities using live external data
+- 📍 Use device location to improve healthcare facility searches
+- 📞 Make outbound healthcare reminder calls
+- 🤝 Escalate sensitive or high-risk requests to human support
+- 📊 Track human-support requests through a dashboard
+- 🏥 Hand facility and appointment conversations to a specialist agent
+- 🔄 Transfer conversations between the main and specialist agents while preserving context
+- ⚡ Provide a low-latency conversational experience using Murf Falcon
+
+---
+
+## Key Features
+
+### 🎙️ Real-Time Voice Interaction
+
+Arogya uses a real-time voice pipeline combining speech-to-text, an LLM, text-to-speech and LiveKit for audio transport.
+
+[Murf Falcon](https://murf.ai/api/docs/text-to-speech-models/falcon-2) powers the voice output.
+
+### 🌐 Multilingual & Code-Mixed Conversations
+
+Arogya can automatically detect the user's language and respond in the same language.
+
+The agent is instructed to maintain the detected language instead of unnecessarily translating or switching languages during a conversation.
+
+### 🧠 Memory & Personalisation
+
+Arogya supports:
+
+- User identification
+- Persistent user memory
+- Conversation history
+- Temporary in-session memory
+- Returning-user personalisation
+- Post-call memory consent
+- Save / Discard memory controls
+
+Persistent conversation memory is only saved when the user explicitly gives consent.
+
+### 🔧 Healthcare Tools
+
+Arogya can use external tools instead of relying entirely on generated information.
+
+The healthcare facility lookup uses an **MCP server** and live OpenStreetMap data to provide:
+
+- Nearby hospitals and clinics
+- PHCs and other healthcare facilities
+- Distance information
+- Facility addresses when available
+- Public / government facility tagging when available
+- Google Maps links
+- Data fetch timestamps
+
+The system also includes graceful failure handling when an external data source is unavailable and a fallback Overpass endpoint for improved reliability.
+
+### 📞 Outbound Healthcare Calls
+
+Arogya can proactively call users instead of only responding to incoming conversations.
+
+The outbound calling system supports:
+
+- Scheduled healthcare reminders
+- Dynamic reminder purposes
+- Two-way conversations
+- User-controlled call termination
+- Call opt-out handling
+- Multilingual speech
+- Native-script support
+
+Outbound calling uses LiveKit Telephony with SIP and Linphone.
+
+### 🤝 Human Escalation
+
+A healthcare assistant should know when **not** to answer.
+
+Arogya can escalate requests involving:
+
+- Red-flag symptoms
+- Diagnosis requests
+- Situations requiring human assistance
+
+Before creating an escalation, Arogya asks for permission to share the relevant information.
+
+The escalation system:
+
+- Creates a human-support request
+- Generates a unique reference ID
+- Produces a concise human-readable summary
+- Protects sensitive information such as OTPs, PINs, passwords and account numbers
+- Provides a Human Support Dashboard
+- Supports ticket states from Open → In Progress → Resolved
+
+### 🏥 Specialist Agent Handoff
+
+Instead of putting every healthcare capability into one large agent, Arogya uses a dedicated **Clinic & Appointment Specialist Agent**.
+
+The specialist handles:
+
+- Hospitals
+- Clinics
+- Doctors
+- Healthcare facilities
+- Appointment-related queries
+- Facility comparison
+- Healthcare specialty searches
+- User tips and feedback
+
+The main agent can hand the conversation to the specialist when required while preserving the existing conversation context.
+
+The specialist can also hand the conversation back to Arogya when the user changes to a general healthcare topic.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    U[🎙️ User] --> LK[LiveKit Real-Time Audio]
+
+    LK --> STT[Deepgram STT]
+    STT --> A[Arogya Main Agent]
+
+    A --> LLM[Google Gemini]
+    A --> MEM[🧠 Memory]
+    A --> TOOLS[🔧 Healthcare Tools]
+    A --> ESC[🤝 Human Escalation]
+    A --> SPEC[🏥 Specialist Agent]
+
+    TOOLS --> MCP[MCP Healthcare Server]
+    MCP --> OSM[OpenStreetMap / Overpass]
+    MCP --> FS[Foursquare]
+
+    ESC --> DASH[Human Support Dashboard]
+
+    SPEC --> FAC[Facility & Appointment Assistance]
+
+    A --> TTS[Murf Falcon TTS]
+    TTS --> LK
+    LK --> U
+
+    A --> TEL[📞 LiveKit Telephony]
+    TEL --> SIP[SIP / Linphone]
+    SIP --> PHONE[User Phone]
+```
+
+### Core Voice Pipeline
+
+```text
+User Voice
+    ↓
+LiveKit
+    ↓
+Deepgram Speech-to-Text
+    ↓
+Arogya Agent + Gemini
+    ↓
+Tools / Memory / Escalation / Specialist Handoff
+    ↓
+Murf Falcon Text-to-Speech
+    ↓
+LiveKit
+    ↓
+User Voice
+```
+
+---
+
+## Tech Stack
+
+### Backend
+
+- Python
+- LiveKit Agents
+- LiveKit Telephony
+- Google Gemini
+- Deepgram
+- Murf Falcon
+- MCP
+- SQLite
+- Silero
+
+### Frontend
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- LiveKit Components
+
+### Healthcare Data
+
+- [OpenStreetMap](https://www.openstreetmap.org/)
+- [Overpass API](https://overpass-api.de/)
+- [Nominatim](https://nominatim.org/)
+- Foursquare
+
+### Communication
+
+- LiveKit
+- SIP
+- Linphone
+
+---
+
+## 10 Days of Voice Agents Journey
 
 ### Day 1 – The Foundation 🎙️
 
@@ -50,7 +276,7 @@ Focused on the frontend and user experience of Arogya.
 - Added connecting and active conversation states
 - Designed the interface around a healthcare use case
 
-The UI was structured to allow individual visual elements and interactions to be extended in future iterations.
+The UI was structured so individual visual elements and interactions can be extended in future iterations.
 
 **Built with:** Next.js, React, TypeScript, Tailwind CSS and LiveKit Components
 
@@ -76,7 +302,7 @@ Arogya only persists the current conversation when the user explicitly gives con
 
 ### Day 5 – The Tools 🔧
 
-Taught Arogya to use an external tool and retrieve real-world healthcare data.
+Taught Arogya to use external tools and retrieve real-world healthcare data.
 
 Built a healthcare facility lookup using an **MCP server** and live OpenStreetMap data.
 
@@ -91,14 +317,12 @@ Built a healthcare facility lookup using an **MCP server** and live OpenStreetMa
 - Added facility addresses when available
 - Added public / government facility tagging when available
 - Added Google Maps links
-- Added the data fetch timestamp
+- Added data fetch timestamps
 - Pushed healthcare results to the frontend while the agent speaks
 - Added graceful failure handling when the external data source is unavailable
 - Added a fallback Overpass endpoint for improved reliability
 
-The healthcare data is **live**, not a hand-built local dataset.
-
-The agent can automatically use the tool when the user asks for a nearby hospital, clinic, PHC or other healthcare facility.
+The healthcare data is **live**, rather than a hand-built local dataset.
 
 **Built with:** Python, MCP, LiveKit Agents, OpenStreetMap, Overpass API, Nominatim, Next.js, React, TypeScript, Tailwind CSS, Gemini, Deepgram and Murf Falcon
 
@@ -108,15 +332,15 @@ The agent can automatically use the tool when the user asks for a nearby hospita
 
 Taught Arogya to proactively call the user instead of only responding to incoming conversations.
 
-* Added outbound calling using LiveKit Telephony
-* Integrated Linphone through SIP
-* Added scheduled healthcare reminder calls
-* Added dynamic reminder purposes instead of a fixed vaccination reminder
-* Added two-way conversation after the call connects
-* Added support for continuing the conversation during reminder calls
-* Added user-controlled call termination
-* Added opt-out handling for users who do not want further calls
-* Kept multilingual speech and native-script support for outbound calls
+- Added outbound calling using LiveKit Telephony
+- Integrated Linphone through SIP
+- Added scheduled healthcare reminder calls
+- Added dynamic reminder purposes
+- Added two-way conversation after the call connects
+- Added support for continuing the conversation during reminder calls
+- Added user-controlled call termination
+- Added opt-out handling
+- Kept multilingual speech and native-script support for outbound calls
 
 Arogya can now proactively call the user, deliver the requested healthcare reminder, and continue the conversation naturally over the phone.
 
@@ -130,17 +354,17 @@ Taught Arogya to recognize when a healthcare request should be handled by a huma
 
 - Added human escalation for red-flag symptoms
 - Added escalation for diagnosis requests
-- Added a `create_escalation` tool for creating human-support requests
-- Added permission-based information sharing before creating an escalation
-- Added concise human-readable summaries with the user's issue, agent checks, urgency, language and preferred follow-up method
+- Added a `create_escalation` tool
+- Added permission-based information sharing
+- Added concise human-readable summaries
 - Added protection against sharing sensitive information such as OTPs, PINs, passwords and account numbers
-- Added unique escalation reference IDs for tracking requests
-- Added a Human Support Dashboard to view created tickets
+- Added unique escalation reference IDs
+- Added a Human Support Dashboard
 - Added ticket status management from Open to In Progress to Resolved
-- Added automatic dashboard updates for newly created requests
+- Added automatic dashboard updates
 - Tested both escalation and normal conversation paths
 
-Arogya can now recognize when human support is needed, ask the caller for permission before sharing information, create a real support request, provide a reference ID, and give the human support team a clear workflow for handling it.
+Arogya can recognize when human support is needed, ask the caller for permission before sharing information, create a support request, provide a reference ID, and give the support team a clear workflow.
 
 **Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini and Silero
 
@@ -150,110 +374,184 @@ Arogya can now recognize when human support is needed, ask the caller for permis
 
 Improved Arogya to make healthcare conversations more accessible across languages while reducing unnecessary response delays.
 
-- Added automatic language detection for user conversations
-- Added language-aware responses that mirror the user's language exactly
+- Added automatic language detection
+- Added language-aware responses that mirror the user's language
 - Added support for multilingual and mixed-language conversations
-- Updated the agent instructions to maintain the detected language throughout the conversation
+- Updated agent instructions to maintain the detected language
 - Prevented unnecessary language switching or translation
 - Optimized the voice-agent flow to reduce response latency
-- Improved conversation responsiveness for a faster and more natural voice experience
-- Tested language handling and latency improvements across conversations
+- Improved conversation responsiveness
+- Tested language handling and latency improvements
 
-Arogya can now communicate naturally in the user's preferred language while providing faster responses, making the healthcare voice experience more accessible and responsive.
+Arogya can now communicate naturally in the user's preferred language while providing a faster and more responsive voice experience.
 
 **Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini and Silero
 
 ---
+
 ### Day 9 – Specialist Agent & Smart Handoff 🏥🤝
 
-Made Arogya more modular by introducing a dedicated **Clinic & Appointment Specialist Agent** for focused healthcare facility-related conversations.
+Made Arogya more modular by introducing a dedicated **Clinic & Appointment Specialist Agent**.
 
 - Created a separate specialist agent for hospitals, clinics, doctors, healthcare facilities and appointment-related queries
-- Added intelligent handoff from the main Arogya agent to the specialist when a request needs specialized facility assistance
-- Passed the existing conversation context during handoff so users don't have to repeat their request
-- Added reverse handoff to return the conversation to Arogya when the user changes to a general healthcare topic
-- Added Foursquare integration alongside the existing OpenStreetMap healthcare lookup
-- Added facility details, healthcare specialty search, user tips/feedback and facility comparison
-- Added structured large-data display so facility and nutrition information can be shown in tables instead of being read out entirely by voice
-- Kept Arogya focused on general healthcare while giving the specialist a smaller, well-defined responsibility
-- Tested both normal conversations and specialist handoff flows
+- Added intelligent handoff from the main Arogya agent
+- Passed existing conversation context during handoff
+- Added reverse handoff back to Arogya
+- Added Foursquare integration alongside OpenStreetMap
+- Added facility details and healthcare specialty search
+- Added user tips and feedback
+- Added facility comparison
+- Added structured large-data display for facility and nutrition information
+- Kept Arogya focused on general healthcare
+- Tested normal conversations and specialist handoff flows
 
-Arogya can now **decide when to handle a request itself and when to delegate it to a specialist**, creating a more scalable and natural multi-agent healthcare experience.
+Arogya can now **decide when to handle a request itself and when to delegate it to a specialist**, creating a more scalable multi-agent healthcare experience.
 
 **Built with:** Python, LiveKit Agents, Next.js, React, SQLite, MCP, Murf Falcon, Deepgram, Google Gemini, Silero, OpenStreetMap and Foursquare
 
 ---
 
-## Why Murf Falcon
+## Why Murf Falcon?
 
-- **55ms model latency** - fastest production TTS
-- **130ms time-to-first-audio** across 10+ global regions
-- **$0.01/1000 characters** - up to 10x cheaper than alternatives
-- **150+ voices** across 35+ languages
+[Murf Falcon](https://murf.ai/api/docs/text-to-speech-models/falcon-2) was used as the text-to-speech layer for Arogya.
+
+Key characteristics highlighted during the challenge include:
+
+- **55ms model latency**
+- **130ms time-to-first-audio**
+- **$0.01 / 1000 characters**
+- **150+ voices**
+- **35+ languages**
 - **99.38% pronunciation accuracy**
 
----
-
-## Architecture
-
-```mermaid
-flowchart LR
-    A[🎙️ User speaks] -->|audio| B[Deepgram STT]
-    B -->|text| C[LLM]
-    C -->|response text| D[Murf Falcon TTS]
-    D -->|audio| E[LiveKit]
-    E -->|stream| F[🔊 User hears]
-
-    style A fill:#444441,stroke:#888780,color:#fff
-    style B fill:#185FA5,stroke:#85B7EB,color:#fff
-    style C fill:#534AB7,stroke:#AFA9EC,color:#fff
-    style D fill:#0F6E56,stroke:#5DCAA5,color:#fff
-    style E fill:#D85A30,stroke:#F0997B,color:#fff
-    style F fill:#444441,stroke:#888780,color:#fff
-```
+Murf Falcon was especially important for keeping the voice interaction responsive and making the agent suitable for multilingual conversations.
 
 ---
 
-## Quickstart
+## Challenges & Learnings
+
+### 1. Maintaining Language Consistency
+
+A multilingual voice agent can easily become inconsistent if language detection and agent instructions are not aligned.
+
+The challenge was preventing Arogya from unnecessarily switching languages or translating a conversation when the user was already communicating naturally.
+
+The solution was to detect the user's language and explicitly instruct the agent to maintain the detected language throughout the conversation.
+
+### 2. Making Healthcare Data Reliable
+
+Healthcare facility information should not simply be generated by an LLM.
+
+Arogya therefore uses an MCP healthcare server connected to live external data sources.
+
+External APIs can still fail, so the system includes graceful failure handling and a fallback Overpass endpoint.
+
+This reinforced an important lesson:
+
+> Tool-using agents need failure paths just as much as successful paths.
+
+### 3. Knowing When Not to Answer
+
+Healthcare is a domain where an AI assistant should not attempt to solve every request.
+
+Arogya therefore includes human escalation for red-flag symptoms and diagnosis-related requests.
+
+The escalation flow also asks for permission before sharing relevant information and removes sensitive credentials such as OTPs, PINs and passwords from the information shared with human support.
+
+### 4. Managing a Growing Agent
+
+As more capabilities were added, putting every responsibility inside one agent became less practical.
+
+The specialist-agent architecture solved this by giving the Clinic & Appointment Specialist a smaller and well-defined responsibility.
+
+Conversation context can be passed during handoff, while the main agent remains focused on general healthcare assistance.
+
+### 5. Balancing Voice and Visual Information
+
+Not everything is efficient to communicate through speech.
+
+Large facility lists, comparisons and structured information can become difficult to listen to line by line.
+
+Arogya therefore combines voice interaction with frontend components that can display structured information visually.
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- **Python** 3.10+
-- **[uv](https://docs.astral.sh/uv/)** - fast Python package manager
-  ```bash
-  # macOS/Linux
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Windows (PowerShell)
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
-- **Node.js** 18+
-- **pnpm** — fast Node package manager
-  ```bash
-  npm install -g pnpm
-  ```
-- A [LiveKit](https://cloud.livekit.io/) project (free tier available)
+- Python 3.10+
+- Node.js 18+
+- [uv](https://docs.astral.sh/uv/)
+- [pnpm](https://pnpm.io/)
+- A [LiveKit Cloud](https://cloud.livekit.io/) project
+- Murf API key
+- Deepgram API key
+- Google Gemini API key
 
-### Step 1: Clone the repo
+### Install uv
+
+**macOS/Linux:**
 
 ```bash
-git clone https://github.com/murf-ai/murf-livekit-starter.git
-cd murf-livekit-starter
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Step 2: Set up environment variables
+**Windows PowerShell:**
 
-Create `.env.local` in both `backend/` and `frontend/` (copy from `.env.example` in each). You need:
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
-| Variable                               | Where to get it                                        | Required |
-| -------------------------------------- | ------------------------------------------------------ | -------- |
-| `LIVEKIT_URL`                          | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_KEY`                      | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_SECRET`                   | LiveKit Cloud dashboard                                | Yes      |
-| `MURF_API_KEY`                         | [murf.ai/api/dashboard](https://murf.ai/api/dashboard) | Yes      |
-| `DEEPGRAM_API_KEY`                     | [deepgram.com](https://deepgram.com)                   | Yes      |
-| `GOOGLE_API_KEY` (or `OPENAI_API_KEY`) | Depends on LLM choice                                  | Yes      |
+### Install pnpm
 
-### Step 3: Install backend dependencies
+```bash
+npm install -g pnpm
+```
+
+---
+
+## Environment Variables
+
+Never commit API keys or secrets to GitHub.
+
+Create the required environment files using the project's `.env.example` files.
+
+Example:
+
+```env
+LIVEKIT_URL=your_livekit_url
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+
+MURF_API_KEY=your_murf_api_key
+DEEPGRAM_API_KEY=your_deepgram_api_key
+GOOGLE_API_KEY=your_google_api_key
+```
+
+Replace the placeholder values with your own credentials.
+
+**Never publish:**
+
+- API keys
+- API secrets
+- SIP credentials
+- Phone numbers
+- Caller information
+- Private healthcare or user data
+
+---
+
+## Installation
+
+### Step 1 — Clone the Repository
+
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd YOUR_REPOSITORY_NAME
+```
+
+### Step 2 — Install Backend Dependencies
 
 ```bash
 cd backend
@@ -261,193 +559,215 @@ uv sync
 uv run python src/agent.py download-files
 ```
 
-### Step 4: Install frontend dependencies
+### Step 3 — Install Frontend Dependencies
 
 ```bash
-cd frontend
+cd ../frontend
 pnpm install
 ```
 
-### Step 5: Run it
+---
 
-**Option A - All-in-one (from repo root):**
+## Running the Project
+
+### Option A — Start Everything
+
+From the repository root:
+
+**macOS/Linux**
 
 ```bash
-# macOS/Linux
 chmod +x start_app.sh
 ./start_app.sh
+```
 
-# Windows (PowerShell)
+**Windows PowerShell**
+
+```powershell
 .\start_app.ps1
 ```
 
-**Option B - Separate terminals:**
+### Option B — Run Services Separately
+
+**Terminal 1 — LiveKit**
 
 ```bash
-# Terminal 1 — LiveKit Server
 livekit-server --dev
-
-# Terminal 2 — Backend agent
-cd backend && uv run python src/agent.py dev
-
-# Terminal 3 — Frontend
-cd frontend && pnpm dev
 ```
 
-Then open **http://localhost:3000** in your browser.
+**Terminal 2 — Backend Agent**
 
-You should now see the voice agent UI. Click **Start talking**, allow microphone access, and speak — the agent will respond with Murf Falcon TTS. Ensure your backend and (if using Option B) LiveKit server are running.
+```bash
+cd backend
+uv run python src/agent.py dev
+```
+
+**Terminal 3 — Frontend**
+
+```bash
+cd frontend
+pnpm dev
+```
+
+Then open:
+
+```text
+http://localhost:3000
+```
+
+Allow microphone access and start a conversation with Arogya.
 
 ---
 
-## Deploy
+## Testing the Agent
 
-Want to deploy this beyond localhost? You'll need to deploy **two services**: the backend agent and the frontend. Both must use the same LiveKit project.
+A simple first test is:
 
-> This is a two-service app — the backend agent and the frontend UI deploy separately. You'll need both running and connected to the same LiveKit project.
+> "Hello Arogya, I need help finding a healthcare facility near me."
 
-### Backend (Python agent) — Deploy to Railway
+The expected flow is:
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tIVCF1?referralCode=cNjn2P&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
-Set these environment variables in Railway:
-
-- `MURF_API_KEY`
-- `DEEPGRAM_API_KEY`
-- `GOOGLE_API_KEY` or `OPENAI_API_KEY`
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-
-The backend runs as a long-lived Python process that connects to LiveKit as an agent. Railway handles this well.
-
-### Frontend (Next.js) — Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
-
-Set these environment variables in Vercel:
-
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `AGENT_NAME` (optional — for explicit agent dispatch)
-
-The frontend is a standard Next.js app. Point it at the same LiveKit instance your backend agent is connected to.
-
-### Connecting them
-
-The frontend and backend don't call each other directly — they both connect to **LiveKit**, which handles the real-time audio transport.
-
-1. Use the **same** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` on both Railway and Vercel
-2. Set `AGENT_NAME=my-agent` on Vercel — this matches the `agent_name="my-agent"` registered in `backend/src/agent.py`
-3. Verify: Railway logs should show the agent connected to LiveKit. Open your Vercel URL, click **Start talking** — the agent should respond
-
-If the agent doesn't connect, double-check that both services point to the same LiveKit project and that the backend is running (check Railway logs).
-
----
-
-## Change the Use Case
-
-The default system prompt makes this a **customer support agent**. You can change the agent’s behavior by editing the prompt.
-
-**Where the prompt lives:** `backend/src/agent.py`- the `SYSTEM_PROMPT` constant (near the top of the file, after the imports). Change that string to change what your voice agent does.
-
-### Example prompts (copy-paste)
-
-**Customer Support (default):**
-
-```
-You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate.
+```text
+User speaks
+    ↓
+Speech is transcribed
+    ↓
+Arogya understands the request
+    ↓
+Location/tool information is processed
+    ↓
+Healthcare facility data is retrieved
+    ↓
+Arogya responds through voice
+    ↓
+Relevant results are displayed in the frontend
 ```
 
-**Language Tutor:**
+### Multilingual Conversation
 
-```
-You are a patient and encouraging language tutor helping the user practice conversational Spanish. Speak primarily in Spanish but switch to English to explain grammar or vocabulary when needed. Correct mistakes gently and suggest better phrasing. Keep conversations natural and fun.
-```
+Speak in one of the supported languages or use a mixed-language conversation and verify that Arogya maintains the detected language.
 
-**AI Receptionist:**
+### Memory
 
-```
-You are a professional receptionist for a medical clinic. Help callers schedule appointments, answer questions about office hours and services, and take messages for doctors. Be warm but efficient. Ask for the caller's name and reason for calling upfront.
-```
+Provide information during a conversation, give the required consent, and test whether the information is available during a returning-user interaction.
 
-See the Configuration section below for voice, STT, and LLM options.
+### Human Escalation
 
----
+Test a request that should be escalated and verify:
 
-## Configuration
+- Permission is requested
+- Sensitive information is protected
+- An escalation reference ID is generated
+- The request appears in the Human Support Dashboard
 
-### Murf voice
+### Specialist Handoff
 
-Edit the `tts=murf.TTS(...)` call in `backend/src/agent.py`. Set the `voice` argument to any Murf voice ID. Examples:
+Ask about a healthcare facility or appointment and verify that the conversation is handed to the Clinic & Appointment Specialist Agent without requiring the user to repeat the context.
 
-- `Anisha` — Indian English (female, default in this starter)
-- `Pooja` — Indian English (female)
-- `Samar` — Indian English (male)
-- `Amara` — US English (female)
-- `Gordon` — US English (male)
-- `Hazel` — UK English (female)
-- `Bertie` — UK English (male)
+### Outbound Calls
 
-Browse all voices: [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library).
-
-### STT provider
-
-STT is configured in `backend/src/agent.py` in the `AgentSession(stt=...)` call. The default is Deepgram (`deepgram.STT(model="nova-3")`). You can swap to another LiveKit-compatible STT plugin if needed.
-
-### LLM (Gemini vs OpenAI)
-
-- **Gemini (default):** Set `GOOGLE_API_KEY` and use `llm=google.LLM(model="gemini-3.5-flash-lite")` in `agent.py`.
-- **OpenAI:** Set `OPENAI_API_KEY`, add the OpenAI plugin, and use the corresponding `llm=openai.LLM(...)` in `agent.py`.
-
-### Audio format
-
-Murf Falcon and LiveKit handle audio format internally. For advanced options, see [Murf API docs](https://murf.ai/api/docs) and [LiveKit docs](https://docs.livekit.io).
+Test a configured healthcare reminder and verify that the outbound call connects and supports a two-way conversation.
 
 ---
 
 ## Project Structure
 
-```
-murf-livekit-starter/
-├── backend/                 # Python voice agent (LiveKit Agents + Murf Falcon)
+```text
+YOUR_REPOSITORY/
+├── backend/
 │   ├── src/
-│   │   └── agent.py         # Agent entrypoint, pipeline (STT/LLM/TTS), system prompt
-│   ├── tests/               # Agent tests
-│   ├── .env.example         # Backend env template
-│   ├── pyproject.toml       # Python deps (uv)
-│   └── railway.toml         # Railway deploy config
-├── frontend/                # Next.js UI for voice sessions
+│   │   └── agent.py
+│   ├── tests/
+│   ├── .env.example
+│   └── pyproject.toml
+│
+├── frontend/
 │   ├── app/
-│   │   ├── page.tsx         # Main page
-│   │   └── api/token/       # LiveKit token endpoint (dev)
-│   ├── components/          # UI (agents-ui, app config, theme)
-│   ├── app-config.ts        # Branding, title, button text, accent
-│   ├── .env.example         # Frontend env template
-│   └── package.json         # Node deps (pnpm)
-├── start_app.sh             # Start LiveKit + backend + frontend (macOS/Linux)
-├── start_app.ps1            # Start LiveKit + backend + frontend (Windows)
-├── README.md                # This file
+│   ├── components/
+│   ├── public/
+│   ├── .env.example
+│   └── package.json
+│
+├── start_app.sh
+├── start_app.ps1
+├── README.md
+└── ...
 ```
-
-For deeper documentation on each part, see:
-
-- [Backend Documentation](./backend/README.md) — agent pipeline, voice/LLM/STT configuration, testing, deployment
-- [Frontend Documentation](./frontend/README.md) — UI customization, visualizers, theming, component architecture
 
 ---
 
-## Links
 
-- [Murf API Docs](https://murf.ai/api/docs)
+### GitHub Repository
+
+[View the Arogya Health Access Repository](https://github.com/Kumar-nm/murf-livekit-starter)
+
+
+
+### Challenge Journey
+
+- [Day 1 – Foundation](https://www.linkedin.com/posts/kumarnm2004_voiceforbharat-voiceforbharat-murfai-activity-7491142016182116353-d3e1?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 2 – Voice & Multilingual Experience](https://www.linkedin.com/posts/kumarnm2004_voiceforbharat-voiceforbharat-murfai-activity-7491518479939018752-uEpI?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 3 – Personalised Healthcare UI](https://www.linkedin.com/posts/kumarnm2004_10daysofvoiceagents-voiceforbharat-murffalcon-activity-7491889318957879296-wdtQ?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 4 – Agent Memory](https://www.linkedin.com/posts/kumarnm2004_10daysofvoiceagents-voiceforbharat-murffalcon-activity-7492214936828346368-aQ4P?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 5 – Healthcare Tools](https://www.linkedin.com/posts/kumarnm2004_10daysofvoiceagents-voiceforbharat-murffalcon-activity-7492594436972142592-rKmm?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 6 – Outbound Calls](https://www.linkedin.com/posts/kumarnm2004_10daysofvoiceagents-voiceforbharat-murffalcon-activity-7492981533398573057-gWMO?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 7 – Human Escalation](https://www.linkedin.com/posts/kumarnm2004_10daysofvoiceagents-voiceforbharat-murffalcon-activity-7493341200746369025-UuJd?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 8 – Multilingual & Low-Latency Experience](https://www.linkedin.com/posts/kumarnm2004_10daysofaivoiceagents-10daysofvoiceagents-activity-7493669151685804033-l2UB?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+- [Day 9 – Specialist Agent & Smart Handoff](https://www.linkedin.com/posts/kumarnm2004_10daysofaivoiceagents-10daysofvoiceagents-activity-7494024763665920000-mgvX?utm_source=share&utm_medium=member_desktop&rcm=ACoAAENEqDQBB14-rq4TXaUCRRz77dlvWmXOEek)
+
+---
+
+## What I Would Improve Next
+
+Arogya is a challenge project, but there are several areas that could be developed further:
+
+- Expand healthcare data coverage across more regions
+- Add more Indian languages
+- Improve real-world latency evaluation
+- Add more robust automated voice-agent evaluation
+- Improve specialist routing
+- Add stronger production authentication and authorization
+- Expand healthcare facility and appointment integrations
+- Improve analytics and call-quality metrics
+- Perform broader safety testing with realistic healthcare scenarios
+- Add stronger observability for production deployments
+
+---
+
+## Disclaimer
+
+Arogya Health Access is an experimental voice-agent project built for the **10 Days of Voice Agents — VoiceForBharat Edition**.
+
+It is intended to assist users with healthcare information and access-related workflows.
+
+It is **not a replacement for a qualified healthcare professional and should not be used for medical diagnosis or emergency medical decision-making.**
+
+---
+
+## Links & Resources
+
+- [Murf API Documentation](https://murf.ai/api/docs)
+- [Murf Falcon Documentation](https://murf.ai/api/docs/text-to-speech-models/falcon-2)
 - [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)
-- [LiveKit Docs](https://docs.livekit.io)
-- [Deepgram Docs](https://developers.deepgram.com)
-- [Murf Falcon Benchmarks](https://murf.ai/falcon/benchmarks)
-- [TTS Latency Benchmarker](https://github.com/sahilsgupta/tts-latency-benchmarker) — run your own p50/p95 tests across providers
-- [Murf Discord](https://discord.gg/FbKAy96Sz7)
-- [Murf Startup Incubator](https://murf.ai/api) — 50M free characters for startups
+- [LiveKit Documentation](https://docs.livekit.io/)
+- [LiveKit Voice AI Quickstart](https://docs.livekit.io/agents/start/voice-ai/)
+- [Deepgram Documentation](https://developers.deepgram.com/)
+- [OpenStreetMap](https://www.openstreetmap.org/)
+- [MCP Documentation](https://modelcontextprotocol.io/)
+
+---
+
+## 10 Days of Voice Agents — VoiceForBharat Edition 🎙️🇮🇳
+
+Built as part of the **10 Days of Voice Agents — VoiceForBharat Edition** by Murf AI.
+
+The project started as a basic voice assistant and evolved into a more complete healthcare voice system with:
+
+**Voice → Memory → Tools → Calls → Human Support → Analytics → Specialist Handoff**
+
+The biggest lesson from the challenge was that building a useful voice agent is not only about making it speak.
+
+It is about giving the agent the right **context, tools, boundaries, memory, failure handling and escalation paths** to make the interaction useful and responsible.
 
 ---
 
